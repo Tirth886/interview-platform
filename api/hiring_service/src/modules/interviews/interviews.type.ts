@@ -1,4 +1,4 @@
-export type InterviewRoundType = 'ai-interview' | 'coding';
+export type InterviewRoundType = 'ai-interview' | 'coding' | 'human-interview' | 'qa-evaluation';
 
 export type InterviewStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
 
@@ -13,6 +13,7 @@ export interface Interview {
   durationMinutes: number;
   instructions: string;
   interviewLink: string;
+  qaBankId: string | null;
   aiResult: string | null;
   createdAt: string;
   updatedAt: string;
@@ -35,6 +36,7 @@ export interface InterviewRow {
   duration_minutes: number;
   instructions: string;
   interview_link: string;
+  qa_bank_id: string | null;
   ai_result: string | null;
   created_at: Date;
   updated_at: Date;
@@ -79,4 +81,5 @@ export interface CreateInterviewData {
   durationMinutes: number;
   instructions: string;
   interviewLink: string;
+  qaBankId?: string | null;
 }

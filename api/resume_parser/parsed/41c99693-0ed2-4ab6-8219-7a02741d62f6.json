@@ -1,0 +1,144 @@
+{
+  "personal_information": {
+    "full_name": "Tirth Jain",
+    "email": "tirth886jain@gmail.com",
+    "phone": "7984814283",
+    "location": "Node.js",
+    "linkedin": "linkedin.com/in/tirthjaindev",
+    "github": null,
+    "portfolio": null,
+    "evidence": {
+      "full_name": {
+        "source_text": "Tirth Jain",
+        "page_number": null,
+        "method": "header_line",
+        "confidence": 0.9
+      },
+      "email": {
+        "source_text": "tirth886jain@gmail.com",
+        "page_number": null,
+        "method": "regex",
+        "confidence": 0.95
+      },
+      "phone": {
+        "source_text": "7984814283",
+        "page_number": null,
+        "method": "regex",
+        "confidence": 0.8
+      }
+    }
+  },
+  "professional_summary": "Senior Software Engineer with over 5+ years of experience building \nscalable backend systems, cloud-based microservices, and distributed \napplications. Skilled in Node.js, React.js, and REST APIs. Proven ability \nto optimize performance, work in Agile environments, and mentor \nteams to deliver high-impact solutions.",
+  "total_experience": null,
+  "skills": {
+    "programming_languages": [
+      "javascript",
+      "python",
+      "typescript"
+    ],
+    "backend": [
+      "express",
+      "nestjs",
+      "node.js"
+    ],
+    "frontend": [
+      "next.js",
+      "react"
+    ],
+    "databases": [
+      "mongodb",
+      "mysql",
+      "postgresql",
+      "redis"
+    ],
+    "cloud": [
+      "aws"
+    ],
+    "devops": [
+      "ci/cd",
+      "docker"
+    ],
+    "data_science": [],
+    "soft_skills": [
+      "communication"
+    ]
+  },
+  "experience": [],
+  "education": [
+    {
+      "degree": "Bachelor",
+      "institution": "Chimanbhai Patel Institute of Computer Application",
+      "graduation_year": "2019",
+      "grade": "8",
+      "specialization": null,
+      "evidence": {
+        "block": {
+          "source_text": "Master in computer application\nChimanbhai Patel Institute of Computer Application\n07/2019 - 07/2021 \nGPA\n8\n10\nBachelor in computer application\nTeerthanker Mahaveer University\n04/2016 - 04/2019 \nGPA\n7.9\n10",
+          "page_number": null,
+          "method": "section_block",
+          "confidence": 0.5
+        }
+      }
+    }
+  ],
+  "projects": [
+    {
+      "name": "Chatbot",
+      "description": "Developed a chatbot engine with dynamic prompt handling using Langchain and Meta APIs.",
+      "technologies": []
+    },
+    {
+      "name": "/",
+      "description": "/",
+      "technologies": []
+    }
+  ],
+  "certifications": [],
+  "languages": [],
+  "achievements": [],
+  "internships": [
+    {
+      "company": "Zuru Tech PVT LTD",
+      "designation": "Software Developer III",
+      "start_date": "2023-11-01",
+      "end_date": "Present",
+      "duration": "3 years",
+      "responsibilities": [
+        "Scaled and maintained several Node.js services with a focus on",
+        "stability and performance under moderate load.",
+        "Identified and resolved memory leaks in backend services, improving",
+        "overall system reliability.",
+        "Refactored legacy code into smaller modules, reducing codebase",
+        "complexity and improving maintainability.",
+        "Participated in design discussions for distributed services and",
+        "reviewed code for junior developers.",
+        "Developed REST APIs and microservices to support internal tools",
+        "Hiddenbrains Infotech PVT LTD",
+        "Worked on a KPI dashboard project by developing modules and",
+        "fixing bugs in the existing system."
+      ],
+      "technologies": [],
+      "is_internship": true,
+      "evidence": {
+        "block": {
+          "source_text": "Software Developer III\nZuru Tech PVT LTD\n11/2023 - Present \nScaled and maintained several Node.js services with a focus on \nstability and performance under moderate load.\nIdentified and resolved memory leaks in backend services, improving \noverall system reliability.\nRefactored legacy code into smaller modules, reducing codebase \ncomplexity and improving maintainability.\nParticipated in design discussions for distributed services and \nreviewed code for junior developers.\nDeveloped REST APIs and ",
+          "page_number": null,
+          "method": "section_block",
+          "confidence": 0.5
+        }
+      }
+    }
+  ],
+  "meta": {
+    "source_type": "pdf",
+    "page_count": 2,
+    "sections_detected": [
+      "education",
+      "experience",
+      "projects",
+      "skills",
+      "summary"
+    ],
+    "original_name": "Tirth_Jain_Resume.pdf"
+  }
+}

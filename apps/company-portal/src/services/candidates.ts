@@ -26,17 +26,42 @@ export type CandidateTimelineEvent = {
   createdAt: string;
 };
 
+export type CandidateLinks = {
+  linkedin: string | null;
+  github: string | null;
+  portfolio: string | null;
+};
+
+export type CandidateWorkflowSummary = {
+  id: string;
+  workflowId: string;
+  batchName: string | null;
+  currentStageId: string | null;
+  status: string;
+  resumeUrl: string;
+  appliedAt: string;
+};
+
 export type Candidate = {
   id: string;
   name: string;
   email: string;
   phoneNumber: string | null;
   resumeUrl: string;
+  workflowId: string | null;
+  batchName: string | null;
+  currentJobTitle: string | null;
+  currentStageId: string | null;
+  latestParseId: string | null;
+  latestAtsAttemptId: string | null;
+  latestAtsScore: number | null;
   experienceSummary: string;
   profileKeywords: string[];
   status: CandidateStatus;
   aiEvaluation: CandidateAIEvaluation;
   finalDecision: string | null;
+  links: CandidateLinks;
+  workflows: CandidateWorkflowSummary[];
   notes: CandidateNote[];
   timeline: CandidateTimelineEvent[];
   appliedAt: string;
@@ -47,6 +72,24 @@ export type CreateCandidatePayload = {
   phoneNumber: string;
   name?: string;
   email?: string;
+};
+
+export type BatchCreateCandidatesPayload = {
+  workflowId: string;
+  batchName: string;
+  initialStageId?: string;
+  resumes: Array<{
+    key: string;
+    url: string;
+    fileName: string;
+  }>;
+};
+
+export type BatchCreateCandidatesResult = {
+  createdCount: number;
+  failedCount: number;
+  candidates: Candidate[];
+  failures?: Array<{ index: number; fileName: string; reason: string }>;
 };
 
 export type UpdateCandidateStatusPayload = {
@@ -122,6 +165,38 @@ export const createCandidate = async (
     throw new Error(
       httpError.response?.data?.message ??
         'Unable to create candidate right now. Please try again.'
+    );
+  }
+};
+
+export const batchCreateCandidates = async (
+  payload: BatchCreateCandidatesPayload,
+  token: string
+): Promise<BatchCreateCandidatesResult> => {
+  try {
+    const response = await companyHttpClient.post<ApiEnvelope<BatchCreateCandidatesResult>>(
+      `${CANDIDATES_BASE_PATH}/batch`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data.data;
+  } catch (error: unknown) {
+    const httpError = error as {
+      response?: {
+        data?: {
+          message?: string;
+        };
+      };
+    };
+
+    throw new Error(
+      httpError.response?.data?.message ??
+        'Unable to create candidates from resumes right now. Please try again.'
     );
   }
 };
@@ -218,6 +293,165 @@ export const runCandidateAutomation = async (
     throw new Error(
       httpError.response?.data?.message ??
         'Unable to run automation right now. Please try again.'
+    );
+  }
+};
+
+export const requestCandidateParse = async (
+  candidateId: string,
+  token: string
+): Promise<Candidate> => {
+  try {
+    const response = await companyHttpClient.post<
+      ApiEnvelope<{ queued: boolean; candidate: Candidate }>
+    >(
+      `${CANDIDATES_BASE_PATH}/${candidateId}/parse`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data.data.candidate;
+  } catch (error: unknown) {
+    const httpError = error as {
+      response?: {
+        data?: {
+          message?: string;
+        };
+      };
+    };
+
+    throw new Error(
+      httpError.response?.data?.message ??
+        'Unable to queue resume parse right now. Please try again.'
+    );
+  }
+};
+
+export const getCandidateById = async (
+  candidateId: string,
+  token: string
+): Promise<Candidate> => {
+  try {
+    const response = await companyHttpClient.get<ApiEnvelope<{ candidate?: Candidate } | Candidate>>(
+      `${CANDIDATES_BASE_PATH}/${candidateId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = response.data.data;
+    if (data && typeof data === 'object' && 'candidate' in data && data.candidate) {
+      return data.candidate;
+    }
+    return data as Candidate;
+  } catch (error: unknown) {
+    const httpError = error as {
+      response?: {
+        data?: {
+          message?: string;
+        };
+      };
+    };
+
+    throw new Error(
+      httpError.response?.data?.message ??
+        'Unable to load candidate right now. Please try again.'
+    );
+  }
+};
+
+export const updateCandidateStage = async (
+  candidateId: string,
+  payload: { stageId: string; detail?: string },
+  token: string
+): Promise<Candidate> => {
+  try {
+    const response = await companyHttpClient.patch<ApiEnvelope<{ candidate: Candidate }>>(
+      `${CANDIDATES_BASE_PATH}/${candidateId}/stage`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data.data.candidate;
+  } catch (error: unknown) {
+    const httpError = error as {
+      response?: {
+        data?: {
+          message?: string;
+        };
+      };
+    };
+
+    throw new Error(
+      httpError.response?.data?.message ??
+        'Unable to update candidate stage right now. Please try again.'
+    );
+  }
+};
+
+export type ScheduleInviteResult = {
+  invite: {
+    token: string;
+    status: string;
+    stageLabel: string;
+    stageDescription: string;
+    roundType: string;
+    durationMinutes: number;
+    expiresAt: string;
+    scheduledStartAt: string | null;
+    candidateName: string;
+    candidateEmail: string;
+    companyName: string;
+    scheduleUrl: string;
+  };
+  reused: boolean;
+  email: {
+    delivered: boolean;
+    mode: 'resend' | 'console';
+    to: string;
+    scheduleUrl: string;
+  };
+};
+
+export const sendCandidateScheduleInvite = async (
+  candidateId: string,
+  token: string,
+  payload?: { workflowNodeId?: string; resend?: boolean }
+): Promise<ScheduleInviteResult> => {
+  try {
+    const response = await companyHttpClient.post<ApiEnvelope<ScheduleInviteResult>>(
+      `${CANDIDATES_BASE_PATH}/${candidateId}/schedule-invite`,
+      payload ?? {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data.data;
+  } catch (error: unknown) {
+    const httpError = error as {
+      response?: {
+        data?: {
+          message?: string;
+        };
+      };
+    };
+
+    throw new Error(
+      httpError.response?.data?.message ??
+        'Unable to send schedule invite right now. Please try again.'
     );
   }
 };

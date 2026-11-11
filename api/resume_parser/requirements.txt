@@ -1,0 +1,14 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.17
+pydantic==2.10.3
+pydantic-settings==2.6.1
+PyMuPDF==1.24.14
+python-docx==1.1.2
+# spaCy 3.7.x ships Windows wheels for Python 3.9 (3.8+ often forces a local blis build)
+spacy==3.7.5
+dateparser==1.2.0
+aio-pika==9.4.3
+httpx==0.28.1
+python-dotenv==1.0.1
+email-validator==2.2.0

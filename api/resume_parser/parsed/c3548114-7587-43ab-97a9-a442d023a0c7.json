@@ -1,0 +1,177 @@
+{
+  "personal_information": {
+    "full_name": "Tirth Jain",
+    "email": "tirth886jain@gmail.com",
+    "phone": "7984814283",
+    "location": "Ahmedabad",
+    "linkedin": "linkedin.com/in/tirthjaindev",
+    "github": "github.com/Tirth886/",
+    "portfolio": null,
+    "evidence": {
+      "full_name": {
+        "source_text": "Tirth Jain",
+        "page_number": null,
+        "method": "header_line",
+        "confidence": 0.9
+      },
+      "email": {
+        "source_text": "tirth886jain@gmail.com",
+        "page_number": null,
+        "method": "regex",
+        "confidence": 0.95
+      },
+      "phone": {
+        "source_text": "7984814283",
+        "page_number": null,
+        "method": "regex",
+        "confidence": 0.8
+      }
+    }
+  },
+  "professional_summary": "Full-stack software engineer with 6+ years of experience designing and building scalable web applications. Skilled in React.js \nand Next.js for responsive, accessible front-end interfaces, and in Node.js, Express, NestJS, and PHP (CodeIgniter) for \nbuilding clean, modular back-end services. Experienced in designing and documenting REST APIs, integrating RabbitMQ for \nmessaging, and using Redis/Memcached for caching to keep systems reliable at scale. Proficient across relational (MySQL, \nPostgreSQL) and NoSQL (MongoDB) data stores, including schema design, index optimization, and sharding. Proven track \nrecord mentoring junior developers, leading code reviews and knowledge-sharing sessions, and partnering with product \nowners to deliver production-ready features on time within Agile teams. \nCORE SKILLS \nJavaScript, TypeScript, PHP, React.js, Next.js, Node.js, Express, NestJS, CodeIgniter, MySQL, PostgreSQL, MongoDB \nRabbitMQ, Redis, Memcached, REST API Design, Database Design, Code Reviews, Mentoring, Cisco Certified Network \nAssociate - Routing and Switching (CCNA), Lambda, EC2, S3, RDS, SQS / SNS, Docker, Zoho API, QuickBooks API, Razorpay, \nStripe, Langchain, Meta APIs",
+  "total_experience": "8 months",
+  "skills": {
+    "programming_languages": [
+      "javascript",
+      "php",
+      "python",
+      "typescript"
+    ],
+    "backend": [
+      "express",
+      "nestjs",
+      "node.js"
+    ],
+    "frontend": [
+      "next.js",
+      "react"
+    ],
+    "databases": [
+      "mongodb",
+      "mysql",
+      "postgresql",
+      "redis"
+    ],
+    "cloud": [],
+    "devops": [
+      "docker"
+    ],
+    "data_science": [
+      "machine learning"
+    ],
+    "soft_skills": [
+      "communication"
+    ]
+  },
+  "experience": [
+    {
+      "company": "March 2026 - Present",
+      "designation": "Senior Software Engineer | Virtual Building Studio Inc",
+      "start_date": "2026-03-01",
+      "end_date": "Present",
+      "duration": "8 months",
+      "responsibilities": [
+        "Ahmedabad, Gujarat, India",
+        "Working as Senior Engineer managing multiple microservices with third-party integrations, including Zoho and",
+        "Solving business-critical problems by designing and implementing scalable backend solutions.",
+        "Managing server infrastructure and monitoring, reducing server costs while improving overall stability.",
+        "Software Developer III | ZURU Tech",
+        "Ahmedabad, Gujarat, India",
+        "Scaled and maintained multiple Node.js services supporting high-traffic production workloads.",
+        "Diagnosed and fixed memory leaks in long-running services to prevent crashes under high-concurrency scenarios.",
+        "Refactored legacy code for modularity, significantly improving maintainability and developer velocity.",
+        "Reviewed code and mentored junior developers on engineering best practices.",
+        "Software Engineer | Hidden Brains InfoTech Pvt. Ltd.",
+        "Ahmedabad, Gujarat, India"
+      ],
+      "technologies": [],
+      "is_internship": false,
+      "evidence": {
+        "block": {
+          "source_text": "Senior Software Engineer | Virtual Building Studio Inc \nMarch 2026 - Present \nAhmedabad, Gujarat, India \n- Working as Senior Engineer managing multiple microservices with third-party integrations, including Zoho and \nQuickBooks APIs. \n- Solving business-critical problems by designing and implementing scalable backend solutions. \n- Managing server infrastructure and monitoring, reducing server costs while improving overall stability. \nSoftware Developer III | ZURU Tech \nNov 2023 - Mar 2026 \nAhmed",
+          "page_number": null,
+          "method": "section_block",
+          "confidence": 0.5
+        }
+      }
+    }
+  ],
+  "education": [
+    {
+      "degree": "Bca",
+      "institution": "Shri Chimanbhai Patel Institute of Computer Applications | 2019 - 2022",
+      "graduation_year": "2019",
+      "grade": null,
+      "specialization": null,
+      "evidence": {
+        "block": {
+          "source_text": "Master of Computer Applications (MCA), Computer Engineering \nShri Chimanbhai Patel Institute of Computer Applications | 2019 - 2022 \nBachelor of Computer Applications (BCA), Computer Application \nTeerthanker Mahaveer University | 2016 - 2019",
+          "page_number": null,
+          "method": "section_block",
+          "confidence": 0.5
+        }
+      }
+    }
+  ],
+  "projects": [
+    {
+      "name": "Tracker",
+      "description": "Built a folder transfer module to copy and migrate large data (500GB-700GB) across local storage; configured Active Directory group policies and SMB permissions using PowerShell. Developed a machine learning model to predict quotation hours by training on historical quotation data, experimenting",
+      "technologies": []
+    },
+    {
+      "name": "SELF PROJECTS",
+      "description": "react-content-shimmer npm: npmjs.com/package/react-content-shimmer | GitHub: github.com/Tirth886/react-content-shimmer Built and published an open-source React library providing customizable shimmer/skeleton loading placeholders.",
+      "technologies": []
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Cisco Certified Network Associate",
+      "issuing_organization": "Routing and Switching (CCNA)",
+      "completion_year": null
+    }
+  ],
+  "languages": [],
+  "achievements": [],
+  "internships": [
+    {
+      "company": "Jun 2019 - Feb 2020",
+      "designation": "Software Developer | FinByz Tech Pvt Ltd",
+      "start_date": "2019-06-01",
+      "end_date": "2020-02-01",
+      "duration": "8 months",
+      "responsibilities": [
+        "Ahmedabad Area, India",
+        "Developed, deployed, and maintained the FinByz Ticker application using JavaScript and Python.",
+        "Collaborated directly with clients to gather requirements and track issues for enhanced application stability.",
+        "Implemented new features and resolved bugs to improve application performance.",
+        "PHP Developer Intern | Grras Solution",
+        "Ahmedabad Area, India",
+        "Assisted in PHP development tasks as part of an internship program."
+      ],
+      "technologies": [],
+      "is_internship": true,
+      "evidence": {
+        "block": {
+          "source_text": "Software Developer | FinByz Tech Pvt Ltd \nJun 2019 - Feb 2020 \nAhmedabad Area, India \n- Developed, deployed, and maintained the FinByz Ticker application using JavaScript and Python. \n- Collaborated directly with clients to gather requirements and track issues for enhanced application stability. \n- Implemented new features and resolved bugs to improve application performance. \nPHP Developer Intern | Grras Solution \nJun 2018 - Aug 2018 \nAhmedabad Area, India \n- Assisted in PHP development tasks a",
+          "page_number": null,
+          "method": "section_block",
+          "confidence": 0.5
+        }
+      }
+    }
+  ],
+  "meta": {
+    "source_type": "pdf",
+    "page_count": 3,
+    "sections_detected": [
+      "certifications",
+      "education",
+      "experience",
+      "projects",
+      "summary"
+    ],
+    "original_name": "Tirth_Jain_Resume (1).pdf"
+  }
+}

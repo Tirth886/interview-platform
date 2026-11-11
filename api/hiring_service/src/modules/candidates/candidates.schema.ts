@@ -45,9 +45,38 @@ export const createCandidateSchema = z.object({
   name: z.string().trim().min(1).optional(),
   email: z.string().email().optional(),
   resumeUrl: z.string().trim().optional(),
+  workflowId: z.string().trim().min(1).optional(),
   experienceSummary: z.string().trim().optional(),
   profileKeywords: z.array(z.string().trim().min(1)).optional(),
   aiEvaluation: aiEvaluationSchema.optional(),
+});
+
+export const batchCreateCandidatesSchema = z.object({
+  workflowId: z.string().trim().min(1, 'Workflow is required'),
+  batchName: z
+    .string()
+    .trim()
+    .min(1, 'Batch name is required')
+    .max(255, 'Batch name must be 255 characters or fewer'),
+  initialStageId: z.string().trim().min(1).max(100).optional(),
+  resumes: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1),
+        url: z.string().trim().min(1),
+        fileName: z.string().trim().min(1),
+      })
+    )
+    .min(1, 'At least one resume is required'),
+});
+
+export const updateCandidateStageSchema = z.object({
+  stageId: z.string().trim().min(1, 'Stage is required').max(100),
+  detail: z.string().trim().max(500).optional(),
+});
+
+export const applyParseResultSchema = z.object({
+  parsed: z.record(z.unknown()),
 });
 
 export const candidateImportSchema = z.object({
@@ -71,4 +100,7 @@ export type CandidateIdParamsInput = z.infer<typeof candidateIdParamsSchema>;
 export type UpdateCandidateStatusInput = z.infer<typeof updateCandidateStatusSchema>;
 export type AddCandidateNoteInput = z.infer<typeof addCandidateNoteSchema>;
 export type CreateCandidateInput = z.infer<typeof createCandidateSchema>;
+export type BatchCreateCandidatesInput = z.infer<typeof batchCreateCandidatesSchema>;
+export type UpdateCandidateStageInput = z.infer<typeof updateCandidateStageSchema>;
+export type ApplyParseResultInput = z.infer<typeof applyParseResultSchema>;
 export type CandidateImportInput = z.infer<typeof candidateImportSchema>;

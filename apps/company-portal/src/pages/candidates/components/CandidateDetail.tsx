@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Badge,
   Button,
@@ -14,57 +15,122 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@shared/ui";
+import {
+  getCandidateById,
+  requestCandidateParse,
+  sendCandidateScheduleInvite,
+  updateCandidateStage,
+  type CandidateStatus,
+} from "../../../services/candidates";
 import { useAuthStore } from "../../../stores/useAuthStore";
-import { useJobManagementStore } from "../../../stores/useJobManagementStore";
-import type { JobCandidateStatus } from "../../../types/candidates";
+import { useSettingsStore } from "../../../stores/useSettingsStore";
+import { getWorkflowStageOptions } from "../../../utils/workflowStages";
 import { formatDateTime } from "../../../utils/dateUtils";
 
 const statusVariant = (
-  status: JobCandidateStatus
+  status: CandidateStatus
 ): "success" | "warning" | "destructive" | "secondary" => {
-  if (status === "selected") {
-    return "success";
-  }
-  if (status === "hold") {
-    return "warning";
-  }
-  if (status === "rejected") {
-    return "destructive";
-  }
+  if (status === "selected") return "success";
+  if (status === "hold") return "warning";
+  if (status === "rejected") return "destructive";
   return "secondary";
 };
 
 export default function CandidateDetailPage(): JSX.Element {
   const { candidateId = "" } = useParams();
-
   const session = useAuthStore((state) => state.session);
-  const jobs = useJobManagementStore((state) => state.jobs);
-  const candidates = useJobManagementStore((state) => state.candidates);
-  const moveCandidateStage = useJobManagementStore((state) => state.moveCandidateStage);
-  const advanceCandidateStage = useJobManagementStore((state) => state.advanceCandidateStage);
-  const setCandidateStatus = useJobManagementStore((state) => state.setCandidateStatus);
-  const addCandidateNote = useJobManagementStore((state) => state.addCandidateNote);
-  const runCandidateAutomation = useJobManagementStore((state) => state.runCandidateAutomation);
-
-  const [noteText, setNoteText] = useState("");
+  const workflows = useSettingsStore((state) => state.workflows);
+  const hydrateWorkflows = useSettingsStore((state) => state.hydrateWorkflows);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [scheduleUrl, setScheduleUrl] = useState<string | null>(null);
 
-  const candidate = candidates.find((item) => item.id === candidateId) ?? null;
-  const job = jobs.find((item) => item.id === candidate?.jobId) ?? null;
+  useEffect(() => {
+    if (!session?.token) return;
+    void hydrateWorkflows(session.token);
+  }, [session?.token, hydrateWorkflows]);
 
-  const currentStage = useMemo(
-    () => job?.workflowStages.find((stage) => stage.id === candidate?.currentStageId) ?? null,
-    [candidate?.currentStageId, job]
+  const candidateQuery = useQuery({
+    queryKey: ["backend-candidate", candidateId, session?.token],
+    queryFn: () => {
+      if (!session?.token || !candidateId) {
+        return Promise.reject(new Error("Missing session or candidate id"));
+      }
+      return getCandidateById(candidateId, session.token);
+    },
+    enabled: Boolean(session?.token && candidateId),
+  });
+
+  const candidate = candidateQuery.data;
+  const workflow = useMemo(
+    () => workflows.find((item) => item.id === candidate?.workflowId) ?? null,
+    [workflows, candidate?.workflowId]
   );
+  const stages = useMemo(() => getWorkflowStageOptions(workflow), [workflow]);
+  const currentStageIndex = stages.findIndex((stage) => stage.id === candidate?.currentStageId);
 
-  if (!candidate || !job) {
+  const handleMoveStage = async (stageId: string): Promise<void> => {
+    if (!session?.token || !candidate) return;
+    const stage = stages.find((item) => item.id === stageId);
+    try {
+      await updateCandidateStage(
+        candidate.id,
+        { stageId, detail: `Moved to stage "${stage?.label ?? stageId}".` },
+        session.token
+      );
+      setMessage(`Moved to "${stage?.label ?? stageId}".`);
+      void candidateQuery.refetch();
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : "Unable to update stage.");
+    }
+  };
+
+  const handleParse = async (): Promise<void> => {
+    if (!session?.token || !candidate) return;
+    setIsParsing(true);
+    try {
+      await requestCandidateParse(candidate.id, session.token);
+      setMessage("Resume parse queued.");
+      void candidateQuery.refetch();
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : "Unable to queue parse.");
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleSendScheduleInvite = async (): Promise<void> => {
+    if (!session?.token || !candidate) return;
+    setIsSendingInvite(true);
+    try {
+      const result = await sendCandidateScheduleInvite(candidate.id, session.token, {
+        resend: true,
+      });
+      setScheduleUrl(result.invite.scheduleUrl);
+      const delivery =
+        result.email.mode === "resend" && result.email.delivered
+          ? `Email sent to ${result.email.to}.`
+          : `Invite ready (email logged — set RESEND_API_KEY to deliver). Sent to ${result.email.to}.`;
+      setMessage(
+        `${delivery} Stage: "${result.invite.stageLabel}". Link copied below.`
+      );
+      void candidateQuery.refetch();
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : "Unable to send schedule invite.");
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  if (candidateQuery.isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading candidate…</p>;
+  }
+
+  if (candidateQuery.isError || !candidate) {
     return (
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">Candidate Not Found</h1>
-        <p className="text-sm text-muted-foreground">
-          The candidate record does not exist or the related job was removed.
-        </p>
         <Button asChild variant="outline">
           <Link to="/app/candidates">Back to Candidates</Link>
         </Button>
@@ -72,282 +138,263 @@ export default function CandidateDetailPage(): JSX.Element {
     );
   }
 
-  const handleStatus = (status: JobCandidateStatus, detail: string): void => {
-    const result = setCandidateStatus(candidate.id, status, detail);
-    if (!result.ok) {
-      setError(result.reason ?? "Unable to update candidate status");
-      return;
-    }
-    setError(null);
-    setMessage(`Candidate marked as ${status}`);
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{candidate.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Candidate profile, AI evaluation, timeline, and decision controls.
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{candidate.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {candidate.currentJobTitle ?? "No job title yet"}
+            {candidate.batchName ? ` · Batch: ${candidate.batchName}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={statusVariant(candidate.status)}>{candidate.status}</Badge>
+        <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link to={`/app/candidates?jobId=${job.id}`}>Back to Candidates</Link>
+            <Link to="/app/candidates">Back</Link>
+          </Button>
+          {candidate.resumeUrl ? (
+            <Button asChild variant="outline">
+              <a href={candidate.resumeUrl} target="_blank" rel="noreferrer">
+                Resume
+              </a>
+            </Button>
+          ) : null}
+          <Button variant="outline" disabled={isParsing || !candidate.resumeUrl} onClick={() => void handleParse()}>
+            {isParsing ? "Queuing…" : "Parse"}
+          </Button>
+          <Button
+            disabled={isSendingInvite || !candidate.workflowId}
+            onClick={() => void handleSendScheduleInvite()}
+          >
+            {isSendingInvite ? "Sending…" : "Send schedule invite"}
           </Button>
         </div>
       </div>
 
-      {message && <p className="text-sm text-emerald-700">{message}</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {message ? (
+        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>
+      ) : null}
+      {scheduleUrl ? (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs break-all">
+          {scheduleUrl}
+        </p>
+      ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile</CardTitle>
-              <CardDescription>Personal info, resume, skills, and experience summary.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Email</p>
-                  <p className="text-sm font-medium">{candidate.email}</p>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Job Applied</p>
-                  <p className="text-sm font-medium">{job.title}</p>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Current Stage</p>
-                  <p className="text-sm font-medium">{currentStage?.name ?? "Unassigned"}</p>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Applied On</p>
-                  <p className="text-sm font-medium">{formatDateTime(candidate.appliedAt)}</p>
-                </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Profile</CardTitle>
+            <CardDescription>Parsed contact and skill details.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="text-sm">{candidate.email.includes("@placeholder.local") ? "—" : candidate.email}</p>
               </div>
-              <div className="rounded-md border border-border p-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Experience</p>
-                <p className="mt-1 text-sm text-foreground">{candidate.experienceSummary}</p>
+              <div>
+                <p className="text-xs text-muted-foreground">Phone</p>
+                <p className="text-sm">{candidate.phoneNumber ?? "—"}</p>
               </div>
-              <div className="rounded-md border border-border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Resume</p>
-                  {candidate.resumeUrl ? (
-                    <a
-                      href={candidate.resumeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary underline"
+              <div>
+                <p className="text-xs text-muted-foreground">Workflow</p>
+                <p className="text-sm">{workflow?.name ?? candidate.workflowId ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Status</p>
+                <Badge variant={statusVariant(candidate.status)} className="mt-1 capitalize">
+                  {candidate.status}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">ATS score</p>
+                <p className="text-sm">
+                  {candidate.latestAtsScore != null ? candidate.latestAtsScore : "Pending"}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs text-muted-foreground">Links</p>
+              <div className="flex flex-wrap gap-3 text-sm">
+                {candidate.links?.linkedin ? (
+                  <a
+                    href={
+                      candidate.links.linkedin.startsWith("http")
+                        ? candidate.links.linkedin
+                        : `https://${candidate.links.linkedin}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-700 underline-offset-2 hover:underline"
+                  >
+                    LinkedIn
+                  </a>
+                ) : null}
+                {candidate.links?.github ? (
+                  <a
+                    href={
+                      candidate.links.github.startsWith("http")
+                        ? candidate.links.github
+                        : `https://${candidate.links.github}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-700 underline-offset-2 hover:underline"
+                  >
+                    GitHub
+                  </a>
+                ) : null}
+                {candidate.links?.portfolio ? (
+                  <a
+                    href={
+                      candidate.links.portfolio.startsWith("http")
+                        ? candidate.links.portfolio
+                        : `https://${candidate.links.portfolio}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-700 underline-offset-2 hover:underline"
+                  >
+                    Portfolio
+                  </a>
+                ) : null}
+                {!candidate.links?.linkedin &&
+                !candidate.links?.github &&
+                !candidate.links?.portfolio ? (
+                  <span className="text-muted-foreground">No links extracted yet.</span>
+                ) : null}
+              </div>
+            </div>
+
+            {(candidate.workflows?.length ?? 0) > 0 ? (
+              <div>
+                <p className="mb-2 text-xs text-muted-foreground">Workflow history</p>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {candidate.workflows.map((item) => {
+                    const wf = workflows.find((w) => w.id === item.workflowId);
+                    return (
+                      <li key={item.id}>
+                        {wf?.name ?? item.workflowId}
+                        {item.batchName ? ` · ${item.batchName}` : ""}
+                        {` · ${item.status}`}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            <div>
+              <p className="mb-2 text-xs text-muted-foreground">Skills</p>
+              {candidate.profileKeywords.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {candidate.profileKeywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="rounded-md bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800"
                     >
-                      Open Resume
-                    </a>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm text-foreground">
-                  {candidate.resumeUrl || "Resume link not provided."}
-                </p>
-              </div>
-              <div className="rounded-md border border-border p-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Skills</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {candidate.profileKeywords.length === 0 ? (
-                    <span className="text-sm text-muted-foreground">No profile keywords submitted.</span>
-                  ) : (
-                    candidate.profileKeywords.map((keyword) => (
-                      <span key={keyword} className="rounded-full border border-border px-2 py-0.5 text-xs">
-                        {keyword}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Stage Timeline</CardTitle>
-              <CardDescription>Track every system and recruiter update on this candidate.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {candidate.timeline.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-                  No timeline activity yet.
-                </div>
-              ) : (
-                candidate.timeline.map((event) => (
-                  <div key={event.id} className="rounded-md border border-border p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">{event.label}</p>
-                      <span className="text-xs text-muted-foreground">{formatDateTime(event.createdAt)}</span>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{event.detail}</p>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Evaluation</CardTitle>
-              <CardDescription>Overall score, breakdown, and automated summary.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-md border border-border p-4">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Overall Score</p>
-                <p className="mt-1 text-3xl font-semibold text-foreground">
-                  {candidate.aiEvaluation.overallScore}%
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">{candidate.aiEvaluation.summary}</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Coding</p>
-                  <p className="text-lg font-semibold">{candidate.aiEvaluation.codingScore}%</p>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Communication</p>
-                  <p className="text-lg font-semibold">{candidate.aiEvaluation.communicationScore}%</p>
-                </div>
-                <div className="rounded-md border border-border p-3">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Domain</p>
-                  <p className="text-lg font-semibold">{candidate.aiEvaluation.domainScore}%</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-              <CardDescription>Manual override is always available, with automation on demand.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Move Candidate To Stage</label>
-                <Select
-                  value={candidate.currentStageId}
-                  onValueChange={(value) => {
-                    moveCandidateStage(candidate.id, value);
-                    setMessage("Candidate stage updated");
-                    setError(null);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {job.workflowStages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const result = advanceCandidateStage(candidate.id);
-                    if (!result.ok) {
-                      setError(result.reason ?? "Unable to move to next stage");
-                      return;
-                    }
-                    setMessage("Candidate advanced");
-                    setError(null);
-                  }}
-                >
-                  Move To Next Stage
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const result = runCandidateAutomation(candidate.id);
-                    if (!result.ok) {
-                      setError(result.reason ?? "Unable to run automation");
-                      return;
-                    }
-                    setMessage("Automation executed");
-                    setError(null);
-                  }}
-                >
-                  Run Automation
-                </Button>
-                <Button variant="outline" onClick={() => handleStatus("hold", "Candidate placed on hold for manual follow-up.")}>
-                  Hold
-                </Button>
-                <Button variant="destructive" onClick={() => handleStatus("rejected", "Candidate rejected after manual review.")}>
-                  Reject
-                </Button>
-                <Button onClick={() => handleStatus("selected", "Candidate selected for the role.")}>Mark Selected</Button>
-              </div>
-              {candidate.finalDecision && (
-                <p className="text-xs text-muted-foreground">
-                  Final decision recorded: {candidate.finalDecision}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-              <CardDescription>Recruiters and hiring managers can leave evaluation notes.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Add Note</label>
-                <textarea
-                  value={noteText}
-                  onChange={(event) => setNoteText(event.target.value)}
-                  className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  placeholder="Add interviewer feedback, concerns, or decision notes"
-                />
-              </div>
-              <Button
-                onClick={() => {
-                  const result = addCandidateNote(
-                    candidate.id,
-                    noteText,
-                    session?.user.role ?? "recruiter"
-                  );
-                  if (!result.ok) {
-                    setError(result.reason ?? "Unable to save note");
-                    return;
-                  }
-                  setNoteText("");
-                  setMessage("Note added");
-                  setError(null);
-                }}
-              >
-                Save Note
-              </Button>
-              {candidate.notes.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-                  No notes recorded yet.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {candidate.notes.map((note) => (
-                    <div key={note.id} className="rounded-md border border-border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">{note.author}</p>
-                        <span className="text-xs text-muted-foreground">{formatDateTime(note.createdAt)}</span>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{note.text}</p>
-                    </div>
+                      {keyword}
+                    </span>
                   ))}
                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No skills extracted yet.</p>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs text-muted-foreground">Summary</p>
+              <p className="text-sm text-muted-foreground">{candidate.experienceSummary}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Stage progress</CardTitle>
+            <CardDescription>Current workflow stage for this candidate.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {stages.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No stages found on the linked workflow.
+              </p>
+            ) : (
+              <>
+                <ol className="space-y-2">
+                  {stages.map((stage, index) => {
+                    const isCurrent = stage.id === candidate.currentStageId;
+                    const isDone = currentStageIndex >= 0 && index < currentStageIndex;
+                    return (
+                      <li
+                        key={stage.id}
+                        className={`rounded-md border px-3 py-2 text-sm ${
+                          isCurrent
+                            ? "border-sky-300 bg-sky-50 text-sky-900"
+                            : isDone
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                              : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        <span className="font-medium">{index + 1}. {stage.label}</span>
+                        {isCurrent ? (
+                          <span className="ml-2 text-xs">Current</span>
+                        ) : isDone ? (
+                          <span className="ml-2 text-xs">Done</span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Move to stage</p>
+                  <Select
+                    value={candidate.currentStageId ?? undefined}
+                    onValueChange={(value) => void handleMoveStage(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>
+                          {stage.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Timeline</CardTitle>
+          <CardDescription>Recent activity for this candidate.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {candidate.timeline.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No timeline events yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {candidate.timeline.map((event) => (
+                <li key={event.id} className="border-b border-border pb-3 last:border-0 last:pb-0">
+                  <p className="text-sm font-medium">{event.label}</p>
+                  <p className="text-sm text-muted-foreground">{event.detail}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatDateTime(event.createdAt)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

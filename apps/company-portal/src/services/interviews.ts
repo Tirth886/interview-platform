@@ -1,6 +1,6 @@
 import { companyHttpClient } from './http';
 
-export type InterviewRoundType = 'ai-interview' | 'coding';
+export type InterviewRoundType = 'ai-interview' | 'coding' | 'human-interview' | 'qa-evaluation';
 export type InterviewStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
 
 export interface Interview {
@@ -12,6 +12,7 @@ export interface Interview {
   durationMinutes: number;
   instructions: string;
   interviewLink: string;
+  qaBankId?: string | null;
   aiResult: string | null;
   createdAt: string;
   updatedAt: string;

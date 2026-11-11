@@ -1,33 +1,34 @@
-import { Badge, Button } from "@shared/ui";
+import { Button } from "@shared/ui";
+import type { ReactNode } from "react";
 
 type SettingsHeaderProps = {
-  canEdit: boolean;
-  onLoadDemo: () => void;
+  title: string;
+  description: string;
+  onLoadDemo?: () => void;
   demoMessage: string | null;
+  actions?: ReactNode;
 };
 
 export const SettingsHeader = ({
-  canEdit,
+  title,
+  description,
   onLoadDemo,
   demoMessage,
+  actions,
 }: SettingsHeaderProps): JSX.Element => (
   <>
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure company preferences, core master data, team access, and billing.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="flex items-center gap-2">
-        {canEdit && (
+        {onLoadDemo ? (
           <Button variant="outline" onClick={onLoadDemo}>
             Load Basic Demo Data
           </Button>
-        )}
-        <Badge variant={canEdit ? "success" : "warning"}>
-          {canEdit ? "Admin access" : "Read only"}
-        </Badge>
+        ) : null}
+        {actions}
       </div>
     </div>
 

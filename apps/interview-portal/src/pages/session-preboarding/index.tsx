@@ -21,6 +21,7 @@ import { useInterviewSessionStore } from "../../stores/useInterviewSessionStore"
 import type { SessionAccessState } from "../../types/session";
 import { preboardingStepLabels } from "../../constants/preboarding";
 import { toAccessError } from "../../utils/sessionAccess";
+import { getSessionActivityPath } from "../../utils/sessionDestination";
 
 export default function SessionPreboardingPage(): JSX.Element {
   const { sessionId } = useParams();
@@ -93,7 +94,7 @@ export default function SessionPreboardingPage(): JSX.Element {
 
         store.setValidatedSession(reopenResult.session, reopenResult.role, reopenResult.user);
         store.markJoined();
-        navigate(`/session/${sessionId}/room`);
+        navigate(getSessionActivityPath(sessionId, reopenResult.session));
         return;
       }
 
@@ -245,7 +246,7 @@ export default function SessionPreboardingPage(): JSX.Element {
               setValidatedSession(joinResult.session, joinResult.role, joinResult.user);
               completeStep("step3");
               markJoined();
-              navigate(`/session/${sessionId}/room`);
+              navigate(getSessionActivityPath(sessionId, joinResult.session));
             }}
           />
         )}
@@ -253,17 +254,30 @@ export default function SessionPreboardingPage(): JSX.Element {
         {joined && (
           <Card>
             <CardHeader>
-              <CardTitle>Interview Session Ready</CardTitle>
+              <CardTitle>
+                {activeSession.sessionMode === "qa-test" ||
+                activeSession.roundType === "qa-evaluation"
+                  ? "Q&A Evaluation Ready"
+                  : "Interview Session Ready"}
+              </CardTitle>
               <CardDescription>
                 Pre-boarding completed. Your session is active and persisted for this interview.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                You are now ready to proceed to the live interview room.
+                {activeSession.sessionMode === "qa-test" ||
+                activeSession.roundType === "qa-evaluation"
+                  ? "You are ready to take the Q&A evaluation."
+                  : "You are now ready to proceed to the live interview room."}
               </p>
               <Button asChild>
-                <Link to={`/session/${sessionId}/room`}>Open Interview Room</Link>
+                <Link to={getSessionActivityPath(sessionId ?? "", activeSession)}>
+                  {activeSession.sessionMode === "qa-test" ||
+                  activeSession.roundType === "qa-evaluation"
+                    ? "Open Q&A Test"
+                    : "Open Interview Room"}
+                </Link>
               </Button>
             </CardContent>
           </Card>

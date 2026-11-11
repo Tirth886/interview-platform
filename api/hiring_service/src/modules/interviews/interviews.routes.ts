@@ -9,6 +9,7 @@ import {
   listInterviewsQuerySchema,
   rescheduleInterviewSchema,
   sessionValidationQuerySchema,
+  submitQaTestSchema,
   updateInterviewStatusSchema,
 } from './interviews.schema';
 
@@ -26,6 +27,22 @@ router.patch(
   '/session/:sessionId/join',
   validateRequest({ params: interviewSessionParamsSchema, query: sessionValidationQuerySchema }),
   interviewsController.joinInterviewSession
+);
+
+router.get(
+  '/session/:sessionId/test',
+  validateRequest({ params: interviewSessionParamsSchema, query: sessionValidationQuerySchema }),
+  interviewsController.getQaTest
+);
+
+router.post(
+  '/session/:sessionId/test/submit',
+  validateRequest({
+    params: interviewSessionParamsSchema,
+    query: sessionValidationQuerySchema,
+    body: submitQaTestSchema,
+  }),
+  interviewsController.submitQaTest
 );
 
 router.use(requireAuth);

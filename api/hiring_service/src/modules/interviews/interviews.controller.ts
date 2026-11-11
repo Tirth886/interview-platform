@@ -7,6 +7,7 @@ import {
   InterviewIdParamsInput,
   ListInterviewsQueryInput,
   RescheduleInterviewInput,
+  SubmitQaTestInput,
   UpdateInterviewStatusInput,
   InterviewSessionParamsInput,
 } from './interviews.schema';
@@ -280,6 +281,38 @@ export class InterviewsController {
         query.user
       );
       sendSuccess(res, 'Interview session joined', result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getQaTest = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const params = req.params as unknown as InterviewSessionParamsInput;
+      const query = req.query as unknown as { role: string; user: string };
+      const result = await this.interviewsService.getQaTest(
+        params.sessionId,
+        query.role,
+        query.user
+      );
+      sendSuccess(res, 'Q&A test loaded', result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  submitQaTest = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const params = req.params as unknown as InterviewSessionParamsInput;
+      const query = req.query as unknown as { role: string; user: string };
+      const body = req.body as SubmitQaTestInput;
+      const result = await this.interviewsService.submitQaTest(
+        params.sessionId,
+        query.role,
+        body,
+        query.user
+      );
+      sendSuccess(res, 'Q&A test submitted', result);
     } catch (error) {
       next(error);
     }

@@ -89,9 +89,10 @@ export class InterviewsRepository {
          duration_minutes,
          instructions,
          interview_link,
+         qa_bank_id,
          ai_result
        )
-       VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, NULL)
+       VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9, NULL)
        RETURNING *`,
       [
         data.companyId,
@@ -102,6 +103,7 @@ export class InterviewsRepository {
         data.durationMinutes,
         data.instructions,
         data.interviewLink,
+        data.qaBankId ?? null,
       ]
     );
 

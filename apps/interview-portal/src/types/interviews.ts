@@ -1,4 +1,4 @@
-export type InterviewRoundType = "ai-interview" | "coding";
+export type InterviewRoundType = "ai-interview" | "coding" | "human-interview" | "qa-evaluation";
 export type InterviewStatus = "scheduled" | "in-progress" | "completed" | "cancelled";
 
 export type Interview = {

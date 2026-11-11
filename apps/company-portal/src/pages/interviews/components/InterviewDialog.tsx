@@ -135,6 +135,8 @@ export const InterviewDialog = ({
                 <SelectContent>
                   <SelectItem value="ai-interview">AI Interview</SelectItem>
                   <SelectItem value="coding">Coding Interview</SelectItem>
+                  <SelectItem value="human-interview">Human Interview</SelectItem>
+                  <SelectItem value="qa-evaluation">Q&A Evaluation</SelectItem>
                 </SelectContent>
               </Select>
             ) : null}

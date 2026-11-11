@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const statusSchema = z.enum(['scheduled', 'in-progress', 'completed', 'cancelled']);
-const roundTypeSchema = z.enum(['ai-interview', 'coding']);
+const roundTypeSchema = z.enum(['ai-interview', 'coding', 'human-interview', 'qa-evaluation']);
 
 export const listInterviewsQuerySchema = z.object({
   from: z.string().datetime().optional(),
@@ -42,9 +42,22 @@ export const updateInterviewStatusSchema = z.object({
   aiResult: z.string().trim().min(1).max(10000).optional(),
 });
 
+export const submitQaTestSchema = z.object({
+  answers: z
+    .array(
+      z.object({
+        questionId: z.string().uuid(),
+        optionId: z.string().uuid(),
+      })
+    )
+    .min(1)
+    .max(200),
+});
+
 export type ListInterviewsQueryInput = z.infer<typeof listInterviewsQuerySchema>;
 export type CreateInterviewInput = z.infer<typeof createInterviewSchema>;
 export type InterviewIdParamsInput = z.infer<typeof interviewIdParamsSchema>;
 export type InterviewSessionParamsInput = z.infer<typeof interviewSessionParamsSchema>;
 export type RescheduleInterviewInput = z.infer<typeof rescheduleInterviewSchema>;
 export type UpdateInterviewStatusInput = z.infer<typeof updateInterviewStatusSchema>;
+export type SubmitQaTestInput = z.infer<typeof submitQaTestSchema>;

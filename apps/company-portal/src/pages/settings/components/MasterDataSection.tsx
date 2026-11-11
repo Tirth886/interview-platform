@@ -15,10 +15,11 @@ import { StageMasterManager } from "./StageMasterManager";
 type MasterDataSectionProps = {
   canEdit: boolean;
   activeMasterSection: MasterDataSectionId;
-  setActiveMasterSection: (section: MasterDataSectionId) => void;
+  setActiveMasterSection?: (section: MasterDataSectionId) => void;
   departments: NamedMasterDataItem[];
   designations: NamedMasterDataItem[];
   branches: NamedMasterDataItem[];
+  showSectionNav?: boolean;
 };
 
 export const MasterDataSection = ({
@@ -28,34 +29,37 @@ export const MasterDataSection = ({
   departments,
   designations,
   branches,
+  showSectionNav = true,
 }: MasterDataSectionProps): JSX.Element => (
   <div className="space-y-4">
-    <Card>
-      <CardHeader>
-        <CardTitle>Master Data</CardTitle>
-        <CardDescription>
-          Navigate and manage reusable entities across hiring workflows.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {masterDataSections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => setActiveMasterSection(section.id)}
-              className={cn(
-                "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                activeMasterSection === section.id
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {section.label}
-            </button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    {showSectionNav ? (
+      <Card>
+        <CardHeader>
+          <CardTitle>Master Data</CardTitle>
+          <CardDescription>
+            Navigate and manage reusable entities across hiring workflows.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {masterDataSections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveMasterSection?.(section.id)}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+                  activeMasterSection === section.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    ) : null}
 
     {activeMasterSection === "departments" && (
       <NamedMasterManager

@@ -5,6 +5,8 @@ import NotFoundPage from "../pages/not-found";
 const SessionPreboardingPage = lazy(() => import("../pages/session-preboarding"));
 const AccessRequiredPage = lazy(() => import("../pages/access-required"));
 const InterviewRoomPage = lazy(() => import("../pages/interview-room"));
+const SessionTestPage = lazy(() => import("../pages/session-test"));
+const SchedulePage = lazy(() => import("../pages/schedule"));
 
 const PageLoader = (): JSX.Element => (
   <div className="flex h-32 items-center justify-center">
@@ -22,6 +24,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/schedule/:token",
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <SchedulePage />
+      </Suspense>
+    ),
+  },
+  {
     path: "/session/:sessionId",
     element: (
       <Suspense fallback={<PageLoader />}>
@@ -34,6 +44,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoader />}>
         <InterviewRoomPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: "/session/:sessionId/test",
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <SessionTestPage />
       </Suspense>
     ),
   },

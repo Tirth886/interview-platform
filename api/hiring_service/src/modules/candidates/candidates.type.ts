@@ -30,17 +30,42 @@ export interface CandidateTimelineEvent {
   createdAt: string;
 }
 
+export interface CandidateLinks {
+  linkedin: string | null;
+  github: string | null;
+  portfolio: string | null;
+}
+
+export interface CandidateWorkflowSummary {
+  id: string;
+  workflowId: string;
+  batchName: string | null;
+  currentStageId: string | null;
+  status: string;
+  resumeUrl: string;
+  appliedAt: string;
+}
+
 export interface Candidate {
   id: string;
   name: string;
   email: string;
   phoneNumber: string | null;
   resumeUrl: string;
+  workflowId: string | null;
+  batchName: string | null;
+  currentJobTitle: string | null;
+  currentStageId: string | null;
+  latestParseId: string | null;
+  latestAtsAttemptId: string | null;
+  latestAtsScore: number | null;
   experienceSummary: string;
   profileKeywords: string[];
   status: CandidateStatus;
   aiEvaluation: CandidateAIEvaluation;
   finalDecision: string | null;
+  links: CandidateLinks;
+  workflows: CandidateWorkflowSummary[];
   notes: CandidateNote[];
   timeline: CandidateTimelineEvent[];
   appliedAt: string;
@@ -54,13 +79,36 @@ export interface CandidateRow {
   email: string;
   phone_number: string | null;
   resume_url: string;
+  workflow_id: string | null;
+  batch_name: string | null;
+  current_job_title: string | null;
+  current_stage_id: string | null;
+  latest_parse_id: string | null;
+  latest_ats_attempt_id: string | null;
+  latest_ats_score: number | null;
   experience_summary: string;
   profile_keywords: string[];
   status: CandidateStatus;
   ai_evaluation: CandidateAIEvaluation;
   final_decision: string | null;
+  parsed_resume: Record<string, unknown> | null;
   applied_at: Date;
   updated_at: Date;
+}
+
+export interface ApplyParsedResumeInput {
+  name?: string;
+  email?: string;
+  phoneNumber?: string | null;
+  experienceSummary?: string;
+  profileKeywords?: string[];
+  currentJobTitle?: string | null;
+  latestParseId?: string | null;
+  resumeUrl?: string | null;
+  workflowId?: string | null;
+  batchName?: string | null;
+  currentStageId?: string | null;
+  parsedResume: Record<string, unknown>;
 }
 
 export interface CandidateNoteRow {
@@ -108,6 +156,9 @@ export interface CandidateInsertInput {
   email: string;
   phoneNumber: string | null;
   resumeUrl: string;
+  workflowId: string | null;
+  batchName?: string | null;
+  currentStageId?: string | null;
   experienceSummary: string;
   profileKeywords: string[];
   status: CandidateStatus;

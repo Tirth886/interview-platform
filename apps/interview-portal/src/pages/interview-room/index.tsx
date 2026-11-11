@@ -11,6 +11,7 @@ import {
   validateSessionAccess,
 } from "../../services/sessionValidation";
 import { useInterviewSessionStore } from "../../stores/useInterviewSessionStore";
+import { getSessionActivityPath } from "../../utils/sessionDestination";
 
 export default function InterviewRoomPage(): JSX.Element {
   const { sessionId } = useParams();
@@ -53,6 +54,14 @@ export default function InterviewRoomPage(): JSX.Element {
       if (!validation.ok) {
         setBootError(validation.message);
         setIsBootstrapping(false);
+        return;
+      }
+
+      if (
+        validation.session.sessionMode === "qa-test" ||
+        validation.session.roundType === "qa-evaluation"
+      ) {
+        navigate(getSessionActivityPath(sessionId, validation.session), { replace: true });
         return;
       }
 

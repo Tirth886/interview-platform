@@ -3,8 +3,9 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   AiAgentConfig,
   BillingSettings,
-  DesignationWorkflow,
+  CreateWorkflowPayload,
   GeneralSettings,
+  HiringWorkflow,
   NamedMasterDataItem,
   NamedMasterKey,
   PayScaleRule,
@@ -15,8 +16,24 @@ import type {
   TeamMember,
   TeamRole,
   TransitionRule,
+  WorkflowFlowEdge,
+  WorkflowFlowNode,
   WorkflowStageAssignment,
 } from "../types/settings";
+import { createDefaultWorkflowGraph } from "../constants/workflow";
+import { listStages } from "../services/stages";
+import {
+  createAiAgent as createAiAgentApi,
+  deleteAiAgent as deleteAiAgentApi,
+  listAiAgents,
+  updateAiAgent as updateAiAgentApi,
+} from "../services/aiAgents";
+import {
+  createWorkflow as createWorkflowApi,
+  deleteWorkflow as deleteWorkflowApi,
+  listWorkflows,
+  updateWorkflow as updateWorkflowApi,
+} from "../services/workflows";
 
 const SETTINGS_STORAGE_KEY = "company-portal.settings";
 
@@ -28,6 +45,7 @@ const createId = (): string => {
 };
 
 const nowIso = (): string => new Date().toISOString();
+
 
 const STAGE_COLOR_HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -64,7 +82,13 @@ const initialMasterData = {
   stages: [] as StageTemplate[],
 };
 
+type WorkflowMutationResult = { ok: boolean; reason?: string; workflow?: HiringWorkflow };
+type AiAgentMutationResult = { ok: boolean; reason?: string; agent?: AiAgentConfig };
+
 type SettingsStore = SettingsState & {
+  stagesHydrated: boolean;
+  workflowsHydrated: boolean;
+  aiAgentsHydrated: boolean;
   seedDemoData: () => void;
   updateGeneral: (updates: Partial<GeneralSettings>) => void;
   addNamedMasterItem: (key: NamedMasterKey, name: string) => void;
@@ -72,49 +96,73 @@ type SettingsStore = SettingsState & {
   deleteNamedMasterItem: (key: NamedMasterKey, id: string) => void;
   setTransitionRule: (stageId: string, rule: TransitionRule) => void;
   clearTransitionRule: (stageId: string) => void;
-  addStageTemplate: (payload: {
-    name: string;
-    type: StageType;
-    colorHex: string;
-    durationMinutes: number | null;
-    instructions: string;
-  }) => { ok: boolean; reason?: string };
-  updateStageTemplate: (
-    id: string,
-    payload: {
-      name: string;
-      type: StageType;
-      colorHex: string;
-      durationMinutes: number | null;
-      instructions: string;
-    }
-  ) => { ok: boolean; reason?: string };
-  deleteStageTemplate: (id: string) => void;
+  hydrateStages: (token: string) => Promise<void>;
+  hydrateWorkflows: (token: string) => Promise<void>;
+  hydrateAiAgents: (token: string) => Promise<void>;
+  hydrateStagesAndWorkflows: (token: string) => Promise<void>;
   saveWorkflowForDesignation: (designationId: string, stages: WorkflowStageAssignment[]) => void;
+  createWorkflow: (
+    payload: CreateWorkflowPayload,
+    token: string
+  ) => Promise<WorkflowMutationResult>;
+  updateWorkflowGraph: (
+    id: string,
+    payload: { nodes: WorkflowFlowNode[]; edges: WorkflowFlowEdge[] },
+    token: string
+  ) => Promise<WorkflowMutationResult>;
+  renameWorkflow: (
+    id: string,
+    name: string,
+    token: string
+  ) => Promise<WorkflowMutationResult>;
+  deleteWorkflow: (id: string, token: string) => Promise<WorkflowMutationResult>;
   addPayScale: (rule: Omit<PayScaleRule, "id" | "createdAt">) => void;
   updatePayScale: (id: string, updates: Omit<PayScaleRule, "id" | "createdAt">) => void;
   deletePayScale: (id: string) => void;
-  addAiAgent: (payload: { name: string; contextMarkdown: string }) => { ok: boolean; reason?: string };
+  addAiAgent: (
+    payload: { name: string; contextMarkdown: string },
+    token: string
+  ) => Promise<AiAgentMutationResult>;
   updateAiAgent: (
     id: string,
-    payload: { name: string; contextMarkdown: string }
-  ) => { ok: boolean; reason?: string };
-  deleteAiAgent: (id: string) => void;
+    payload: { name: string; contextMarkdown: string },
+    token: string
+  ) => Promise<AiAgentMutationResult>;
+  deleteAiAgent: (id: string, token: string) => Promise<AiAgentMutationResult>;
   addTeamMember: (email: string, role: TeamRole) => { ok: boolean; reason?: string };
   updateTeamMemberRole: (id: string, role: TeamRole) => void;
   removeTeamMember: (id: string) => void;
 };
 
+const toStageTemplate = (stage: StageTemplate): StageTemplate => ({
+  id: stage.id,
+  name: stage.name,
+  type: stage.type === "human" ? "human" : "ai",
+  colorHex: normalizeStageColor(stage.colorHex, stage.type === "human" ? "human" : "ai"),
+  durationMinutes: stage.durationMinutes ?? null,
+  instructions: stage.instructions ?? "",
+  createdAt: stage.createdAt,
+  stageType: stage.stageType,
+  isEnabled: stage.isEnabled ?? true,
+  isSystem: stage.isSystem ?? true,
+  code: stage.code,
+  icon: stage.icon ?? "circle",
+  updatedAt: stage.updatedAt,
+});
+
 export const useSettingsStore = create<SettingsStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       general: initialGeneral,
       masterData: initialMasterData,
-      workflows: [] as DesignationWorkflow[],
+      workflows: [] as HiringWorkflow[],
       transitionRules: [] as StageTransitionRule[],
       aiAgents: [] as AiAgentConfig[],
       teamMembers: [] as TeamMember[],
       billing: initialBilling,
+      stagesHydrated: false,
+      workflowsHydrated: false,
+      aiAgentsHydrated: false,
 
       seedDemoData: () =>
         set((state) => {
@@ -298,101 +346,51 @@ export const useSettingsStore = create<SettingsStore>()(
           return next;
         }),
 
-      addStageTemplate: (payload) => {
-        let result: { ok: boolean; reason?: string } = { ok: true };
-
-        set((state) => {
-          const cleanName = payload.name.trim();
-          if (!cleanName) {
-            result = { ok: false, reason: "Stage name is required" };
-            return state;
-          }
-
-          const exists = state.masterData.stages.some(
-            (stage) => stage.name.toLowerCase() === cleanName.toLowerCase()
-          );
-
-          if (exists) {
-            result = { ok: false, reason: "Stage with this name already exists" };
-            return state;
-          }
-
-          const stage: StageTemplate = {
-            id: createId(),
-            name: cleanName,
-            type: payload.type,
-            colorHex: normalizeStageColor(payload.colorHex, payload.type),
-            durationMinutes: payload.durationMinutes,
-            instructions: payload.instructions.trim(),
-            createdAt: nowIso(),
-          };
-
-          return {
-            masterData: {
-              ...state.masterData,
-              stages: [...state.masterData.stages, stage],
-            },
-          };
-        });
-
-        return result;
-      },
-
-      updateStageTemplate: (id, payload) => {
-        let result: { ok: boolean; reason?: string } = { ok: true };
-
-        set((state) => {
-          const cleanName = payload.name.trim();
-          if (!cleanName) {
-            result = { ok: false, reason: "Stage name is required" };
-            return state;
-          }
-
-          const exists = state.masterData.stages.some(
-            (stage) => stage.id !== id && stage.name.toLowerCase() === cleanName.toLowerCase()
-          );
-
-          if (exists) {
-            result = { ok: false, reason: "Stage with this name already exists" };
-            return state;
-          }
-
-          return {
-            masterData: {
-              ...state.masterData,
-              stages: state.masterData.stages.map((stage) =>
-                stage.id === id
-                  ? {
-                      ...stage,
-                      name: cleanName,
-                      type: payload.type,
-                      colorHex: normalizeStageColor(payload.colorHex, payload.type),
-                      durationMinutes: payload.durationMinutes,
-                      instructions: payload.instructions.trim(),
-                    }
-                  : stage
-              ),
-            },
-          };
-        });
-
-        return result;
-      },
-
-      deleteStageTemplate: (id) =>
+      hydrateStages: async (token) => {
+        const items = await listStages(token);
         set((state) => ({
+          stagesHydrated: true,
           masterData: {
             ...state.masterData,
-            stages: state.masterData.stages.filter((stage) => stage.id !== id),
+            stages: items.map(toStageTemplate),
           },
-          workflows: state.workflows
-            .map((workflow) => ({
-              ...workflow,
-              stages: workflow.stages.filter((item) => item.stageId !== id),
-            }))
-            .filter((workflow) => workflow.stages.length > 0),
-          transitionRules: state.transitionRules.filter((rule) => rule.stageId !== id),
-        })),
+        }));
+      },
+
+      hydrateWorkflows: async (token) => {
+        const items = await listWorkflows(token);
+        set({
+          workflowsHydrated: true,
+          workflows: items,
+        });
+      },
+
+      hydrateAiAgents: async (token) => {
+        const items = await listAiAgents(token);
+        set({
+          aiAgentsHydrated: true,
+          aiAgents: items,
+        });
+      },
+
+      hydrateStagesAndWorkflows: async (token) => {
+        const [stages, workflows, agents] = await Promise.all([
+          listStages(token),
+          listWorkflows(token),
+          listAiAgents(token),
+        ]);
+        set((state) => ({
+          stagesHydrated: true,
+          workflowsHydrated: true,
+          aiAgentsHydrated: true,
+          masterData: {
+            ...state.masterData,
+            stages: stages.map(toStageTemplate),
+          },
+          workflows,
+          aiAgents: agents,
+        }));
+      },
 
       setTransitionRule: (stageId, rule) =>
         set((state) => {
@@ -450,17 +448,115 @@ export const useSettingsStore = create<SettingsStore>()(
             };
           }
 
-          const newWorkflow: DesignationWorkflow = {
+          const createdAt = nowIso();
+          const graph = createDefaultWorkflowGraph();
+          const newWorkflow: HiringWorkflow = {
             id: createId(),
+            name: "Untitled workflow",
             designationId,
             stages: validStages,
-            updatedAt: nowIso(),
+            nodes: graph.nodes,
+            edges: graph.edges,
+            jobDescriptionFileName: "",
+            jobDescriptionUrl: "",
+            jobDescriptionKey: "",
+            createdAt,
+            updatedAt: createdAt,
           };
 
           return {
             workflows: [...state.workflows, newWorkflow],
           };
         }),
+
+      createWorkflow: async (payload, token) => {
+        const trimmed = payload.name.trim();
+        if (!trimmed) {
+          return { ok: false, reason: "Workflow name is required." };
+        }
+
+        const fileName = payload.jobDescriptionFileName.trim();
+        const url = payload.jobDescriptionUrl.trim();
+        const key = payload.jobDescriptionKey.trim();
+        if (!fileName || !url || !key) {
+          return { ok: false, reason: "Job description file is required." };
+        }
+
+        try {
+          const workflow = await createWorkflowApi(
+            {
+              name: trimmed,
+              jobDescriptionFileName: fileName,
+              jobDescriptionUrl: url,
+              jobDescriptionKey: key,
+            },
+            token
+          );
+          set((state) => ({
+            workflows: [workflow, ...state.workflows.filter((item) => item.id !== workflow.id)],
+          }));
+          return { ok: true, workflow };
+        } catch (error: unknown) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to create workflow.",
+          };
+        }
+      },
+
+      updateWorkflowGraph: async (id, payload, token) => {
+        try {
+          const workflow = await updateWorkflowApi(
+            id,
+            { nodes: payload.nodes, edges: payload.edges },
+            token
+          );
+          set((state) => ({
+            workflows: state.workflows.map((item) => (item.id === id ? workflow : item)),
+          }));
+          return { ok: true, workflow };
+        } catch (error: unknown) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to save workflow.",
+          };
+        }
+      },
+
+      renameWorkflow: async (id, name, token) => {
+        const trimmed = name.trim();
+        if (!trimmed) {
+          return { ok: false, reason: "Workflow name is required." };
+        }
+
+        try {
+          const workflow = await updateWorkflowApi(id, { name: trimmed }, token);
+          set((state) => ({
+            workflows: state.workflows.map((item) => (item.id === id ? workflow : item)),
+          }));
+          return { ok: true, workflow };
+        } catch (error: unknown) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to rename workflow.",
+          };
+        }
+      },
+
+      deleteWorkflow: async (id, token) => {
+        try {
+          await deleteWorkflowApi(id, token);
+          set((state) => ({
+            workflows: state.workflows.filter((workflow) => workflow.id !== id),
+          }));
+          return { ok: true };
+        } catch (error: unknown) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to delete workflow.",
+          };
+        }
+      },
 
       addPayScale: (rule) =>
         set((state) => ({
@@ -495,85 +591,87 @@ export const useSettingsStore = create<SettingsStore>()(
           },
         })),
 
-      addAiAgent: (payload) => {
-        let result: { ok: boolean; reason?: string } = { ok: true };
+      addAiAgent: async (payload, token) => {
+        const cleanName = payload.name.trim();
+        if (!cleanName) {
+          return { ok: false, reason: "Agent name is required" };
+        }
 
-        set((state) => {
-          const cleanName = payload.name.trim();
-          if (!cleanName) {
-            result = { ok: false, reason: "Agent name is required" };
-            return state;
-          }
+        const exists = get().aiAgents.some(
+          (agent) => agent.name.toLowerCase() === cleanName.toLowerCase()
+        );
+        if (exists) {
+          return { ok: false, reason: "AI agent with this name already exists" };
+        }
 
-          const exists = state.aiAgents.some(
-            (agent) => agent.name.toLowerCase() === cleanName.toLowerCase()
+        try {
+          const agent = await createAiAgentApi(
+            {
+              name: cleanName,
+              contextMarkdown: payload.contextMarkdown.trim(),
+            },
+            token
           );
-          if (exists) {
-            result = { ok: false, reason: "AI agent with this name already exists" };
-            return state;
-          }
-
-          const nextAgent: AiAgentConfig = {
-            id: createId(),
-            name: cleanName,
-            contextMarkdown: payload.contextMarkdown.trim(),
-            createdAt: nowIso(),
-            updatedAt: nowIso(),
-          };
-
+          set((state) => ({
+            aiAgents: [agent, ...state.aiAgents.filter((item) => item.id !== agent.id)],
+          }));
+          return { ok: true, agent };
+        } catch (error: unknown) {
           return {
-            aiAgents: [nextAgent, ...state.aiAgents],
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to create AI agent",
           };
-        });
-
-        return result;
+        }
       },
 
-      updateAiAgent: (id, payload) => {
-        let result: { ok: boolean; reason?: string } = { ok: true };
+      updateAiAgent: async (id, payload, token) => {
+        const cleanName = payload.name.trim();
+        if (!cleanName) {
+          return { ok: false, reason: "Agent name is required" };
+        }
 
-        set((state) => {
-          const cleanName = payload.name.trim();
-          if (!cleanName) {
-            result = { ok: false, reason: "Agent name is required" };
-            return state;
-          }
+        const exists = get().aiAgents.some(
+          (agent) => agent.id !== id && agent.name.toLowerCase() === cleanName.toLowerCase()
+        );
+        if (exists) {
+          return { ok: false, reason: "AI agent with this name already exists" };
+        }
 
-          const exists = state.aiAgents.some(
-            (agent) => agent.id !== id && agent.name.toLowerCase() === cleanName.toLowerCase()
+        try {
+          const agent = await updateAiAgentApi(
+            id,
+            {
+              name: cleanName,
+              contextMarkdown: payload.contextMarkdown.trim(),
+            },
+            token
           );
-          if (exists) {
-            result = { ok: false, reason: "AI agent with this name already exists" };
-            return state;
-          }
-
-          const target = state.aiAgents.some((agent) => agent.id === id);
-          if (!target) {
-            result = { ok: false, reason: "AI agent not found" };
-            return state;
-          }
-
+          set((state) => ({
+            aiAgents: state.aiAgents.map((item) => (item.id === id ? agent : item)),
+          }));
+          return { ok: true, agent };
+        } catch (error: unknown) {
           return {
-            aiAgents: state.aiAgents.map((agent) =>
-              agent.id === id
-                ? {
-                    ...agent,
-                    name: cleanName,
-                    contextMarkdown: payload.contextMarkdown.trim(),
-                    updatedAt: nowIso(),
-                  }
-                : agent
-            ),
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to update AI agent",
           };
-        });
-
-        return result;
+        }
       },
 
-      deleteAiAgent: (id) =>
-        set((state) => ({
-          aiAgents: state.aiAgents.filter((agent) => agent.id !== id),
-        })),
+      deleteAiAgent: async (id, token) => {
+        try {
+          await deleteAiAgentApi(id, token);
+          set((state) => ({
+            aiAgents: state.aiAgents.filter((agent) => agent.id !== id),
+          }));
+          return { ok: true };
+        } catch (error: unknown) {
+          return {
+            ok: false,
+            reason: error instanceof Error ? error.message : "Unable to delete AI agent",
+          };
+        }
+      },
 
       addTeamMember: (email, role) => {
         const cleanEmail = email.trim().toLowerCase();
@@ -632,31 +730,29 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 6,
+      version: 10,
+      partialize: (state) => ({
+        general: state.general,
+        masterData: {
+          departments: state.masterData.departments,
+          designations: state.masterData.designations,
+          branches: state.masterData.branches,
+          payScales: state.masterData.payScales,
+          // stages come from API
+          stages: [] as StageTemplate[],
+        },
+        // workflows come from API
+        workflows: [] as HiringWorkflow[],
+        transitionRules: state.transitionRules,
+        // aiAgents come from API
+        aiAgents: [] as AiAgentConfig[],
+        teamMembers: state.teamMembers,
+        billing: state.billing,
+      }),
       merge: (persistedState, currentState) => {
         const persisted = (persistedState as Partial<SettingsState> | undefined) ?? {};
         const persistedMasterData =
           (persisted.masterData as Partial<SettingsState["masterData"]> | undefined) ?? {};
-
-        const hydratedStages = (persistedMasterData.stages ?? []).map((stage: StageTemplate) => ({
-          ...stage,
-          colorHex: normalizeStageColor(stage.colorHex, stage.type),
-        }));
-
-        const hydratedWorkflows = (persisted.workflows ?? currentState.workflows).map(
-          (workflow) => {
-            const stages = "stages" in workflow && Array.isArray(workflow.stages)
-              ? workflow.stages
-              : ((workflow as DesignationWorkflow & { stageIds?: string[] }).stageIds ?? []).map((stageId) => ({
-                  stageId,
-                }));
-
-            return {
-              ...workflow,
-              stages,
-            };
-          }
-        );
 
         return {
           ...currentState,
@@ -668,11 +764,14 @@ export const useSettingsStore = create<SettingsStore>()(
           masterData: {
             ...initialMasterData,
             ...persistedMasterData,
-            stages: hydratedStages,
+            stages: currentState.masterData.stages,
           },
-          workflows: hydratedWorkflows,
+          workflows: currentState.workflows,
+          stagesHydrated: false,
+          workflowsHydrated: false,
+          aiAgentsHydrated: false,
           transitionRules: persisted.transitionRules ?? currentState.transitionRules,
-          aiAgents: persisted.aiAgents ?? currentState.aiAgents,
+          aiAgents: currentState.aiAgents,
           teamMembers: persisted.teamMembers ?? currentState.teamMembers,
           billing: {
             ...currentState.billing,

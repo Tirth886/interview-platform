@@ -3,10 +3,13 @@ import { sendSuccess } from '../../middlewares/response';
 import { CandidatesService, candidatesService } from './candidates.service';
 import {
   AddCandidateNoteInput,
+  ApplyParseResultInput,
+  BatchCreateCandidatesInput,
   CandidateIdParamsInput,
   CandidateImportInput,
   CreateCandidateInput,
   ListCandidatesQueryInput,
+  UpdateCandidateStageInput,
   UpdateCandidateStatusInput,
 } from './candidates.schema';
 
@@ -294,6 +297,94 @@ export class CandidatesController {
       const body = req.body as CandidateImportInput;
       const result = await this.candidatesService.importCandidates(auth!.companyId, body);
       sendSuccess(res, 'Candidates import completed', result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * @openapi
+   * /api/v1/candidates/batch:
+   *   post:
+   *     tags: [Candidates]
+   *     summary: Create candidates from uploaded resumes for a workflow
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [workflowId, resumes]
+   *             properties:
+   *               workflowId: { type: string }
+   *               resumes:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   required: [key, url, fileName]
+   *                   properties:
+   *                     key: { type: string }
+   *                     url: { type: string }
+   *                     fileName: { type: string }
+   *     responses:
+   *       201: { description: Batch create finished }
+   *       401: { description: Unauthorized }
+   */
+  batchCreateCandidates = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const auth = req.auth;
+      const body = req.body as BatchCreateCandidatesInput;
+      const result = await this.candidatesService.batchCreateFromResumes(auth!.companyId, body);
+      sendSuccess(res, 'Candidates created from resumes', result, 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Internal callback from resume_parser after RabbitMQ job completes.
+   */
+  applyParseResult = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const params = req.params as unknown as CandidateIdParamsInput;
+      const body = req.body as ApplyParseResultInput;
+      // companyId is resolved from the candidate row via service using internal path —
+      // for internal calls we look up by id across company using repository through service helper.
+      const result = await this.candidatesService.applyParseResultByCandidateId(
+        params.candidateId,
+        body.parsed
+      );
+      sendSuccess(res, 'Candidate updated from parsed resume', result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  requestResumeParse = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const auth = req.auth;
+      const params = req.params as unknown as CandidateIdParamsInput;
+      const result = await this.candidatesService.requestResumeParse(
+        auth!.companyId,
+        params.candidateId
+      );
+      sendSuccess(res, 'Resume parse queued', result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateCandidateStage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const auth = req.auth;
+      const params = req.params as unknown as CandidateIdParamsInput;
+      const body = req.body as UpdateCandidateStageInput;
+      const candidate = await this.candidatesService.updateCandidateStage(
+        auth!.companyId,
+        params.candidateId,
+        body
+      );
+      sendSuccess(res, 'Candidate stage updated', { candidate });
     } catch (error) {
       next(error);
     }

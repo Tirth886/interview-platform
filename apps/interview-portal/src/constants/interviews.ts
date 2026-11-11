@@ -13,4 +13,6 @@ export const statusVariant: Record<
 export const roundTypeLabel: Record<InterviewRoundType, string> = {
   "ai-interview": "AI Interview",
   coding: "Coding Interview",
+  "human-interview": "Human Interview",
+  "qa-evaluation": "Q&A Evaluation",
 };

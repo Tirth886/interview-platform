@@ -1,8 +1,10 @@
-import type { InterviewStatus } from "./interviews";
+import type { InterviewRoundType, InterviewStatus } from "./interviews";
 
 export type SessionRole = "candidate";
 
 export type InterviewSessionStatus = InterviewStatus;
+
+export type SessionMode = "interview" | "qa-test";
 
 export type InterviewSessionRecord = {
   id: string;
@@ -16,6 +18,9 @@ export type InterviewSessionRecord = {
   durationMinutes: number;
   instructions: string;
   status: InterviewSessionStatus;
+  roundType?: InterviewRoundType;
+  sessionMode?: SessionMode;
+  qaBankId?: string | null;
 };
 
 export type SessionValidationFailureReason =

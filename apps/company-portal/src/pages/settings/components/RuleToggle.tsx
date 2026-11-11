@@ -20,8 +20,8 @@ export const RuleToggle = ({
         className={cn(
           "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
           value === rt
-            ? "border-primary bg-primary/10 text-primary"
-            : "border-border text-muted-foreground hover:bg-muted",
+            ? "border-primary bg-primary/15 text-primary shadow-sm"
+            : "border-border bg-background text-muted-foreground hover:bg-background/80",
           disabled && "cursor-not-allowed opacity-50"
         )}
       >

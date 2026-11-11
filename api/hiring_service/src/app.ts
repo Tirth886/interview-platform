@@ -8,15 +8,19 @@ import { HTTP_STATUS } from './constants/http';
 import { logger } from './middlewares/logger';
 import { requestLoggingMiddleware } from './middlewares/request-logger';
 import { sendError } from './middlewares/response';
+import { getUploadRootDir } from './providers/storage';
 import routes from './routes';
 
 const app = express();
 
 // Security & parsing middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Local uploaded files (replace with S3 URLs when STORAGE_DRIVER=s3)
+app.use('/uploads', express.static(getUploadRootDir()));
 
 // Request logging
 app.use(requestLoggingMiddleware);

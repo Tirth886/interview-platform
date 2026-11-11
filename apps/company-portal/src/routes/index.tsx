@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
@@ -18,6 +18,8 @@ const CandidateDetailPage = lazy(() => import("../pages/candidates/components/Ca
 const InterviewsPage = lazy(() => import("../pages/interviews"));
 const AnalyticsPage = lazy(() => import("../pages/analytics"));
 const SettingsPage = lazy(() => import("../pages/settings"));
+const WorkflowEditorPage = lazy(() => import("../pages/settings/workflow-editor"));
+const QaBankEditorPage = lazy(() => import("../pages/settings/qa-bank-editor"));
 const JobsPage = lazy(() => import("../pages/jobs"));
 const JobDetailPage = lazy(() => import("../pages/jobs/components/JobDetail"));
 
@@ -143,11 +145,49 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "master",
+            element: <AdminOnlyRoute />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to="hiring-workflow" replace />,
+              },
+              {
+                path: "hiring-workflow/:workflowId",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <WorkflowEditorPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: "qa/:bankId",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <QaBankEditorPage />
+                  </Suspense>
+                ),
+              },
+              {
+                path: ":section",
+                element: (
+                  <Suspense fallback={<PageLoader />}>
+                    <SettingsPage />
+                  </Suspense>
+                ),
+              },
+            ],
+          },
+          {
             path: "settings",
             element: <AdminOnlyRoute />,
             children: [
               {
                 index: true,
+                element: <Navigate to="general" replace />,
+              },
+              {
+                path: ":section",
                 element: (
                   <Suspense fallback={<PageLoader />}>
                     <SettingsPage />

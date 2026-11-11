@@ -1,42 +1,57 @@
 import { useEffect, useMemo, useState } from "react";
+import { Navigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useSettingsStore } from "../../stores/useSettingsStore";
-import type { MasterDataSection as MasterDataSectionId, SettingsTab, TeamRole } from "../../types/settings";
+import { masterNavItems } from "../../constants/navigation";
 import { SettingsHeader } from "./components/SettingsHeader";
-import { SettingsNav } from "./components/SettingsNav";
 import { GeneralSettingsSection } from "./components/GeneralSettingsSection";
-import { MasterDataSection } from "./components/MasterDataSection";
 import { AiAgentSection } from "./components/AiAgentSection";
 import { HiringWorkflowSection } from "./components/HiringWorkflowSection";
-import { TeamSection } from "./components/TeamSection";
+import { QaSection } from "./components/QaSection";
 import { BillingSection } from "./components/BillingSection";
 
+const sectionMeta: Record<string, { title: string; description: string }> = {
+  general: {
+    title: "General Settings",
+    description: "Company profile and default interview preferences.",
+  },
+  billing: {
+    title: "Billing",
+    description: "Plan details, seats, and invoices.",
+  },
+  "hiring-workflow": {
+    title: "Hiring Workflow",
+    description: "Create named workflows and design stage flowcharts.",
+  },
+  "ai-agent": {
+    title: "AI Agents",
+    description: "Reusable AI agent contexts and rules.",
+  },
+  qa: {
+    title: "Q&A",
+    description: "Question banks with options and correct answers for workflow stages.",
+  },
+};
+
+const validSections = new Set([
+  "general",
+  "billing",
+  ...masterNavItems.map((item) => item.section),
+]);
+
 export default function SettingsPage(): JSX.Element {
+  const { section = "general" } = useParams<{ section: string }>();
   const session = useAuthStore((state) => state.session);
   const {
     general,
-    masterData,
-    workflows,
-    aiAgents,
-    teamMembers,
     billing,
     updateGeneral,
-    addTeamMember,
-    updateTeamMemberRole,
-    removeTeamMember,
     seedDemoData,
   } = useSettingsStore();
 
   const canEdit = session?.user.role === "admin";
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
-  const [activeMasterSection, setActiveMasterSection] =
-    useState<MasterDataSectionId>("departments");
-
   const [generalForm, setGeneralForm] = useState(general);
-  const [teamInviteEmail, setTeamInviteEmail] = useState("");
-  const [teamInviteRole, setTeamInviteRole] = useState<TeamRole>("recruiter");
-  const [teamError, setTeamError] = useState<string | null>(null);
   const [demoMessage, setDemoMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,96 +69,74 @@ export default function SettingsPage(): JSX.Element {
     [billing.seatsLimit, billing.seatsUsed]
   );
 
-  const workflowCoverage = useMemo(() => {
-    if (masterData.designations.length === 0) {
-      return 0;
-    }
-    return Math.round((workflows.length / masterData.designations.length) * 100);
-  }, [masterData.designations.length, workflows.length]);
+  if (!validSections.has(section)) {
+    return <Navigate to="/app/master/hiring-workflow" replace />;
+  }
+
+  const meta = sectionMeta[section] ?? sectionMeta.general;
+
+  const usesInlineHeader =
+    section === "ai-agent" || section === "hiring-workflow" || section === "qa";
 
   return (
     <div className="space-y-6">
-      <SettingsHeader
-        canEdit={canEdit}
-        demoMessage={demoMessage}
-        onLoadDemo={() => {
-          seedDemoData();
-          setDemoMessage("Demo data loaded for basic settings only.");
-        }}
-      />
-
-      <div className="grid items-start gap-4 lg:grid-cols-[240px_1fr] xl:grid-cols-[260px_1fr]">
-        <SettingsNav activeTab={activeTab} onTabChange={setActiveTab} />
-
-        <div className="space-y-4">
-          {activeTab === "general" && (
-            <GeneralSettingsSection
-              canEdit={canEdit}
-              generalForm={generalForm}
-              setGeneralForm={setGeneralForm}
-              onSave={() =>
-                updateGeneral({
-                  ...generalForm,
-                  defaultInterviewDurationMinutes: Math.max(
-                    15,
-                    Number(generalForm.defaultInterviewDurationMinutes) || 45
-                  ),
-                })
-              }
-            />
-          )}
-
-          {activeTab === "master-data" && (
-            <MasterDataSection
-              canEdit={canEdit}
-              activeMasterSection={activeMasterSection}
-              setActiveMasterSection={setActiveMasterSection}
-              departments={masterData.departments}
-              designations={masterData.designations}
-              branches={masterData.branches}
-            />
-          )}
-
-          {activeTab === "ai-agent" && (
-            <AiAgentSection canEdit={canEdit} agentCount={aiAgents.length} />
-          )}
-
-          {activeTab === "hiring-workflow" && (
-            <HiringWorkflowSection
-              canEdit={canEdit}
-              workflowCount={workflows.length}
-              designationCount={masterData.designations.length}
-              workflowCoverage={workflowCoverage}
-            />
-          )}
-
-          {activeTab === "team" && (
-            <TeamSection
-              canEdit={canEdit}
-              teamMembers={teamMembers}
-              teamInviteEmail={teamInviteEmail}
-              setTeamInviteEmail={setTeamInviteEmail}
-              teamInviteRole={teamInviteRole}
-              setTeamInviteRole={setTeamInviteRole}
-              teamError={teamError}
-              onInvite={() => {
-                const result = addTeamMember(teamInviteEmail, teamInviteRole);
-                if (!result.ok) {
-                  setTeamError(result.reason ?? "Unable to invite member");
-                  return;
+      {!usesInlineHeader ? (
+        <SettingsHeader
+          title={meta.title}
+          description={meta.description}
+          demoMessage={demoMessage}
+          onLoadDemo={
+            section === "general" && canEdit
+              ? () => {
+                  seedDemoData();
+                  setDemoMessage("Demo data loaded for basic settings only.");
                 }
-                setTeamError(null);
-                setTeamInviteEmail("");
-              }}
-              onUpdateRole={updateTeamMemberRole}
-              onRemove={removeTeamMember}
-            />
-          )}
+              : undefined
+          }
+        />
+      ) : null}
 
-          {activeTab === "billing" && (
-            <BillingSection billing={billing} seatsRemaining={seatsRemaining} />
-          )}
-        </div>
+      <div className="space-y-4">
+        {section === "general" && (
+          <GeneralSettingsSection
+            canEdit={canEdit}
+            generalForm={generalForm}
+            setGeneralForm={setGeneralForm}
+            onSave={() =>
+              updateGeneral({
+                ...generalForm,
+                defaultInterviewDurationMinutes: Math.max(
+                  15,
+                  Number(generalForm.defaultInterviewDurationMinutes) || 45
+                ),
+              })
+            }
+          />
+        )}
+
+        {section === "ai-agent" && (
+          <AiAgentSection
+            canEdit={canEdit}
+            title={meta.title}
+            description={meta.description}
+          />
+        )}
+
+        {section === "qa" && (
+          <QaSection canEdit={canEdit} title={meta.title} description={meta.description} />
+        )}
+
+        {section === "hiring-workflow" && (
+          <HiringWorkflowSection
+            canEdit={canEdit}
+            title={meta.title}
+            description={meta.description}
+          />
+        )}
+
+        {section === "billing" && (
+          <BillingSection billing={billing} seatsRemaining={seatsRemaining} />
+        )}
       </div>
     </div>
   );
